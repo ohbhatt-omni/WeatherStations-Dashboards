@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Weather Station Monitor</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
+    <style>
+        .container {
+            margin-top: 15px;
+            padding-left: 50px;            
+            padding-right: 50px;            
+        }
+        .img{
+            text-align: center;
+            align-content: center;
+            align-self: center;
+            align-items: center;
+            padding-left: auto;            
+            padding-right: auto;     
+        }
+        .card {
+            border-radius: 15px;
+        }
+        .icon {
+            font-size: 1.5em;
+        }
+        .topic-title {
+            font-weight: bold;
+        }
+        .data-field {
+            font-size: 1.2em;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header img {
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+        }
+        .header h1 {
+            display: inline-block;
+            vertical-align: middle;
+            margin: 0;
+        }
+        .search-bar {
+            margin-bottom: 20px;
+            margin-top: 20px;
+            font-size: 1.5em;
+            text-align: center;
+        }
+        .alert {
+            font-size: 1.5em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- Add heading and Logo -->
+    <div class="container">
+        <p style="text-align:center;"><img src="https://iili.io/dfGq9qJ.png" alt="Logo" width="50%"></p>            
+        <div class="header">
+            <h1>IoT Weather Station Dashboard</h1>
+            <h2>Omni KP Infratech</h2>
+        </div>
+    <br>
+    </div>    
+    <div class="container">
+        <div id="status" class="alert alert-warning" role="alert">
+            Connecting to Cloud...⌛
+        </div>
+        <input type="text" id="search-input" class="form-control search-bar" placeholder="Filter by Station Code...">
+        <div class="row" id="topics-container">
+            <!-- Dynamic content will be inserted here -->
+        </div>
+    </div>
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.3/mqttws31.min.js"></script> -->
+    <script>
+        const topics = ["VSKP", "VZM", "CHE", "RGDA", "SUP", "ARK"]; // Add your topics here
+        const broker = "broker.emqx.io";
+
+        function onConnect() {
+            document.getElementById('status').classList.replace('alert-warning', 'alert-success');
+            document.getElementById('status').textContent = "✅ Connected to Iot Cloud";
+
+            topics.forEach(topic => {
+                client.subscribe("OmniWeatherStation/"+topic);
+                createTopicContainer(topic);
+            });
+        }
+
+        function onFailure(message) {
+            document.getElementById('status').classList.replace('alert-warning', 'alert-danger');
+            document.getElementById('status').textContent = "💢 Connection failed: " + message.errorMessage;
+        }
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                document.getElementById('status').classList.replace('alert-success', 'alert-danger');
+                document.getElementById('status').textContent = "💢 Connection lost: " + responseObject.errorMessage;
+            }
+        }
+
+        function onMessageArrived(message) {
+            //Trim Topic from here
+            const topic = message.destinationName.split("/")[1];
+            const payload = JSON.parse(message.payloadString);
+            console.log(payload)
+
+            const container = document.getElementById(topic);
+            if (container) {
+                container.querySelector('.wind-speed').textContent = payload.WIND_SPEED.toFixed(1) + " kmph";
+                container.querySelector('.wind-direction').textContent = payload.WIND_DIRECTION;
+                container.querySelector('.wind-angle').textContent = payload.WIND_ANGLE+"°🔺N";
+                container.querySelector('.temperature').textContent = payload.TEMPERATURE.toFixed(1) + " °C";
+                container.querySelector('.humidity').textContent = payload.HUMIDITY + " %RH";
+                //container.querySelector('.date-time').textContent = payload["TIME"];
+            }
+        }
+
+        function createTopicContainer(topic) {
+            const container = document.createElement('div');
+            container.className = 'col-md-4 py-4 px-4';
+            container.id = topic;
+            container.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title topic-title">${topic}</h2>
+                        <p><span class="icon">💨</span> Wind Speed: <span class="wind-speed data-field">N/A</span></p>
+                        <p><span class="icon">🧭</span> Wind Direction: <span class="wind-direction data-field">N/A</span></p>
+                        <p><span class="icon">📐</span> Wind Angle: <span class="wind-angle data-field">N/A</span></p>
+                        <p><span class="icon">🌡️</span> Temperature: <span class="temperature data-field">N/A</span></p>
+                        <p><span class="icon">💦</span> Humidity: <span class="humidity data-field">N/A</span></p>
+                        <!-- <p><span class="icon">🕒</span> Last Updated: <span class="date-time data-field">N/A</span></p> --!>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('topics-container').appendChild(container);
+        }
+
+        document.getElementById('search-input').addEventListener('input', function() {
+            const searchValue = this.value.toLowerCase();
+            console.log(searchValue);
+            //const containers = document.querySelectorAll('.topics-container');
+            var containers = document.getElementById('topics-container').children;            
+            console.log(containers);
+            
+            for (var container of containers) {
+                const topicTitle = container.querySelector('.topic-title').textContent.toLowerCase();
+                console.log(topicTitle);
+                if (topicTitle.includes(searchValue)) {
+                    container.style.display = '';
+                    console.log("showing");
+                } else {
+                    container.style.display = 'none';
+                    console.log("hiding");
+                }
+            }
+        });
+
+        var reconnectTimeout = 2000;
+		var host="broker.emqx.io";
+        var user="emqx";
+        var pass="public";
+		var port=8083
+
+        var x=Math.floor(Math.random() * 10000); 
+		var cname="orderform-"+x;
+
+		client = new Paho.MQTT.Client(host,port,cname);
+		//document.write("connecting to "+ host);
+		var options = {
+			timeout: 3,
+			onSuccess: onConnect,
+			onFailure: onFailure,
+            userName: user, 
+            password: pass
+        };
+        // client.username_pw_set(user, pass)
+        
+        // mqtt.onMessageArrived = onMessageArrived
+        
+        //mqtt.on_subscribe = () => {console.log("Subscribed")}
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        client.connect(options); //connect
+        //const client = new Paho.MQTT.Client(broker, "clientId");
+
+        //client.connect({ onSuccess: onConnect, onFailure: onFailure });
+    </script>
+</body>
+</html>
